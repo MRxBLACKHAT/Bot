@@ -11,6 +11,10 @@ bot = telebot.TeleBot(API_TOKEN, parse_mode="HTML")
 orders = []
 waiting_for_order = {}
 
+# AUTO ORDER NUMBER
+next_order_number = 1
+
+
 # CONVERT QUANTITY
 def convert_quantity(quantity_text):
 
@@ -25,6 +29,7 @@ def convert_quantity(quantity_text):
         return number
 
     return float(qty)
+
 
 # START
 @bot.message_handler(commands=['start'])
@@ -44,6 +49,7 @@ def start(message):
         reply_markup=markup
     )
 
+
 # NEW ORDER
 @bot.message_handler(func=lambda m: m.text == "➕ New Order")
 def new_order(message):
@@ -55,30 +61,36 @@ def new_order(message):
         """
 📥 <b>Send details line by line :</b>
 
-🧾 Order No: 
-🎮 Order Name: 
-👤 Seller: 
-📦 Quantity: 
-💸 Rate: 
+🎮 Order Name:
+👤 Seller:
+📦 Quantity:
+💸 Rate:
 """
     )
+
 
 # SAVE ORDER
 @bot.message_handler(func=lambda m: m.chat.id in waiting_for_order)
 def save_order(message):
 
+    global next_order_number
+
     try:
         data = message.text.strip().split("\n")
 
-        if len(data) != 5:
+        # NOW ONLY 4 LINES REQUIRED
+        if len(data) != 4:
             raise Exception()
 
-        order_no = data[0]
-        order_name = data[1]
-        seller = data[2]
+        # AUTO ORDER NUMBER
+        order_no = next_order_number
+        next_order_number += 1
 
-        quantity_text = data[3]
-        rate = float(data[4])
+        order_name = data[0]
+        seller = data[1]
+
+        quantity_text = data[2]
+        rate = float(data[3])
 
         quantity_value = convert_quantity(quantity_text)
 
@@ -141,9 +153,17 @@ def save_order(message):
             """
 ❌ <b>Invalid format.</b>
 
-Send exactly 5 lines.
+Send exactly 4 lines.
+
+Example:
+
+BLACKHAT 191
+Ayush
+15K
+3.1
 """
         )
+
 
 # ALL ORDERS
 @bot.message_handler(func=lambda m: m.text == "📋 All Orders")
@@ -160,7 +180,7 @@ def all_orders(message):
         status = "✅" if order["payment_status"] == "Paid" else "❌"
 
         btn = types.InlineKeyboardButton(
-            f"{status} {order['order_name']} • {order['seller']}",
+            f"{status} {order['order_no']} • {order['order_name']} • {order['seller']}",
             callback_data=f"view_{i}"
         )
 
@@ -171,6 +191,7 @@ def all_orders(message):
         "📋 <b>Select an order :</b>",
         reply_markup=markup
     )
+
 
 # VIEW ORDER
 @bot.callback_query_handler(func=lambda call: call.data.startswith("view_"))
@@ -213,6 +234,7 @@ def view_order(call):
         call.message.message_id,
         reply_markup=markup
     )
+
 
 # UPDATE STATUS
 @bot.callback_query_handler(
@@ -270,6 +292,7 @@ def update_status(call):
 
     bot.answer_callback_query(call.id, "✅ Updated")
 
+
 # DELETE ORDER MENU
 @bot.message_handler(func=lambda m: m.text == "🗑 Delete Order")
 def delete_order_menu(message):
@@ -283,7 +306,7 @@ def delete_order_menu(message):
     for i, order in enumerate(orders):
 
         btn = types.InlineKeyboardButton(
-            f"🗑 {order['order_name']} • {order['seller']}",
+            f"🗑 {order['order_no']} • {order['order_name']} • {order['seller']}",
             callback_data=f"delete_{i}"
         )
 
@@ -294,6 +317,7 @@ def delete_order_menu(message):
         "🗑 <b>Select order to delete :</b>",
         reply_markup=markup
     )
+
 
 # DELETE ORDER
 @bot.callback_query_handler(func=lambda call: call.data.startswith("delete_"))
@@ -314,6 +338,7 @@ def delete_order(call):
     )
 
     bot.answer_callback_query(call.id, "Deleted")
+
 
 # TOTAL EARNED + TOTAL POP
 @bot.message_handler(func=lambda m: m.text == "💰 Total Amount Earned")
@@ -352,19 +377,7 @@ def total_earned(message):
 """
     )
 
+
 print("🔥 Bot is running...")
-from flask import Flask
-from threading import Thread
 
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is running"
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-t = Thread(target=run)
-t.start()
 bot.infinity_polling()
